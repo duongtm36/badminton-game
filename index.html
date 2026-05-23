@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game Cầu Lông Online</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f172a, #14532d);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .game-wrapper {
+      width: 100%;
+      max-width: 1100px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.45);
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      font-size: 28px;
+    }
+
+    .score-board {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .score-box {
+      background: #020617;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      padding: 10px 16px;
+      min-width: 90px;
+      text-align: center;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: rgba(2, 6, 23, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 14px;
+    }
+
+    .panel h2 {
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+
+    .character {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      border: 1px solid transparent;
+      border-radius: 14px;
+      padding: 10px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      text-align: left;
+      transition: 0.2s;
+    }
+
+    .character:hover,
+    .character.active {
+      background: #22c55e;
+      color: #052e16;
+      transform: translateY(-2px);
+    }
+
+    .character-name {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .character-info {
+      font-size: 13px;
+      opacity: 0.85;
+    }
+
+    .controls {
+      margin-top: 14px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #cbd5e1;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    button.action-btn {
+      border: none;
+      background: #22c55e;
+      color: #052e16;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button.action-btn.secondary {
+      background: #eab308;
+      color: #422006;
+    }
+
+    .court-wrap {
+      position: relative;
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      background: #15803d;
+      border-radius: 20px;
+      border: 5px solid #dcfce7;
+      display: block;
+    }
+
+    .message {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(2, 6, 23, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 18px 24px;
+      border-radius: 18px;
+      text-align: center;
+      font-weight: bold;
+      pointer-events: none;
+      max-width: 80%;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrapper">
+    <div class="header">
+      <h1>🏸 Game Cầu Lông Online</h1>
+      <div class="score-board">
+        <div class="score-box">Bạn: <span id="playerScore">0</span></div>
+        <div class="score-box">Máy: <span id="botScore">0</span></div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="panel">
+        <h2>Chọn nhân vật</h2>
+        <div id="characterList"></div>
+
+        <div class="btn-row">
+          <button class="action-btn" onclick="startGame()">Bắt đầu</button>
+          <button class="action-btn secondary" onclick="resetGame()">Chơi lại</button>
+        </div>
+
+        <div class="controls">
+          <b>Điều khiển:</b><br />
+          W / ↑ : đi lên<br />
+          S / ↓ : đi xuống<br />
+          Space : đánh cầu<br /><br />
+          Chạm cầu đúng lúc để đánh sang sân đối thủ.
+        </div>
+      </div>
+
+      <div class="court-wrap">
+        <canvas id="gameCanvas" width="800" height="480"></canvas>
+        <div id="message" class="message">
+          Chọn nhân vật rồi bấm “Bắt đầu” để chơi
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const characters = [
+      { name: "Dương Đẹp Trai", gender: "Nam", speed: 6, power: 9, emoji: "😎" },
+      { name: "Long Thò Lò", gender: "Nam", speed: 8, power: 6, emoji: "🦵" },
+      { name: "Trường Siêu Dài", gender: "Nam", speed: 5, power: 8, emoji: "🏸" },
+      { name: "Chinh Voi Ma Mút", gender: "Nữ", speed: 4, power: 10, emoji: "🐘" },
+      { name: "Phương Tê Giác 2 Sừng", gender: "Nữ", speed: 5, power: 9, emoji: "🦏" },
+      { name: "Quỳnh Siêu Giàu", gender: "Nữ", speed: 7, power: 7, emoji: "💎" }
+    ];
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const message = document.getElementById("message");
+    const playerScoreEl = document.getElementById("playerScore");
+    const botScoreEl = document.getElementById("botScore");
+    const characterList = document.getElementById("characterList");
+
+    let selectedCharacter = characters[0];
+    let started = false;
+    let playerScore = 0;
+    let botScore = 0;
+    let keys = {};
+
+    const player = {
+      x: 90,
+      y: 240,
+      width: 38,
+      height: 82
+    };
+
+    const bot = {
+      x: 670,
+      y: 240,
+      width: 38,
+      height: 82,
+      speed: 4.2
+    };
+
+    const shuttle = {
+      x: 400,
+      y: 220,
+      r: 10,
+      vx: -4,
+      vy: 2.5
+    };
+
+    function renderCharacters() {
+      characterList.innerHTML = "";
+
+      characters.forEach((character, index) => {
+        const btn = document.createElement("button");
+        btn.className = "character" + (character === selectedCharacter ? " active" : "");
+        btn.innerHTML = `
+          <div class="character-name">${character.emoji} ${character.name}</div>
+          <div class="character-info">${character.gender} | Tốc độ: ${character.speed} | Lực: ${character.power}</div>
+        `;
+        btn.onclick = () => {
+          selectedCharacter = character;
+          renderCharacters();
+        };
+        characterList.appendChild(btn);
+      });
+    }
+
+    function startGame() {
+      started = true;
+      message.classList.add("hidden");
+      resetRound(Math.random() > 0.5 ? 1 : -1);
+    }
+
+    function resetGame() {
+      started = false;
+      playerScore = 0;
+      botScore = 0;
+      updateScore();
+      player.y = 240;
+      bot.y = 240;
+      resetRound(-1);
+      message.innerHTML = "Chọn nhân vật rồi bấm “Bắt đầu” để chơi";
+      message.classList.remove("hidden");
+    }
+
+    function resetRound(direction) {
+      shuttle.x = 400;
+      shuttle.y = 220;
+      shuttle.vx = 4 * direction;
+      shuttle.vy = Math.random() > 0.5 ? 2.4 : -2.4;
+    }
+
+    function updateScore() {
+      playerScoreEl.textContent = playerScore;
+      botScoreEl.textContent = botScore;
+    }
+
+    function drawCourt() {
+      ctx.fillStyle = "#15803d";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "#dcfce7";
+      ctx.lineWidth = 3;
+
+      ctx.strokeRect(40, 40, 720, 400);
+      ctx.beginPath();
+      ctx.moveTo(400, 40);
+      ctx.lineTo(400, 440);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(400, 40);
+      ctx.lineTo(400, 440);
+      ctx.strokeStyle = "#0f172a";
+      ctx.lineWidth = 7;
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.65)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(40, 160);
+      ctx.lineTo(760, 160);
+      ctx.moveTo(40, 320);
+      ctx.lineTo(760, 320);
+      ctx.stroke();
+    }
+
+    function drawPlayer() {
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(player.x, player.y - player.height / 2, player.width, player.height);
+
+      ctx.font = "28px Arial";
+      ctx.fillText(selectedCharacter.emoji, player.x - 2, player.y - 50);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "13px Arial";
+      ctx.fillText(selectedCharacter.name, 45, 28);
+    }
+
+    function drawBot() {
+      ctx.fillStyle = "#f97316";
+      ctx.fillRect(bot.x, bot.y - bot.height / 2, bot.width, bot.height);
+
+      ctx.font = "28px Arial";
+      ctx.fillText("🤖", bot.x + 2, bot.y - 50);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "13px Arial";
+      ctx.fillText("Máy Siêu Khó", 650, 28);
+    }
+
+    function drawShuttle() {
+      ctx.beginPath();
+      ctx.fillStyle = "#ffffff";
+      ctx.arc(shuttle.x, shuttle.y, shuttle.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#fde68a";
+      ctx.beginPath();
+      ctx.moveTo(shuttle.x - 7, shuttle.y + 3);
+      ctx.lineTo(shuttle.x - 22, shuttle.y + 12);
+      ctx.lineTo(shuttle.x - 15, shuttle.y - 8);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function updatePlayer() {
+      if (keys["w"] || keys["ArrowUp"]) {
+        player.y -= selectedCharacter.speed;
+      }
+      if (keys["s"] || keys["ArrowDown"]) {
+        player.y += selectedCharacter.speed;
+      }
+
+      player.y = Math.max(85, Math.min(395, player.y));
+    }
+
+    function updateBot() {
+      const target = shuttle.y;
+      if (bot.y < target - 10) bot.y += bot.speed;
+      if (bot.y > target + 10) bot.y -= bot.speed;
+      bot.y = Math.max(85, Math.min(395, bot.y));
+    }
+
+    function hitByPlayer() {
+      const nearX = shuttle.x > player.x && shuttle.x < player.x + player.width + 36;
+      const nearY = shuttle.y > player.y - player.height / 2 - 22 && shuttle.y < player.y + player.height / 2 + 22;
+
+      if (nearX && nearY && shuttle.vx < 0) {
+        shuttle.vx = 4 + selectedCharacter.power * 0.45;
+        shuttle.vy = (shuttle.y - player.y) * 0.09;
+      }
+    }
+
+    function hitByBot() {
+      const nearX = shuttle.x > bot.x - 36 && shuttle.x < bot.x + bot.width;
+      const nearY = shuttle.y > bot.y - bot.height / 2 - 28 && shuttle.y < bot.y + bot.height / 2 + 28;
+
+      if (nearX && nearY && shuttle.vx > 0) {
+        shuttle.vx = -6.2;
+        shuttle.vy = (shuttle.y - bot.y) * 0.08;
+      }
+    }
+
+    function updateShuttle() {
+      shuttle.x += shuttle.vx;
+      shuttle.y += shuttle.vy;
+
+      if (shuttle.y < 52 || shuttle.y > 428) {
+        shuttle.vy *= -1;
+      }
+
+      hitByBot();
+
+      if (shuttle.x < 30) {
+        botScore++;
+        updateScore();
+        resetRound(1);
+      }
+
+      if (shuttle.x > 770) {
+        playerScore++;
+        updateScore();
+        resetRound(-1);
+      }
+
+      if (playerScore >= 11 || botScore >= 11) {
+        started = false;
+        const winText = playerScore > botScore ? "Bạn thắng rồi! 🏆" : "Máy thắng rồi! 😭";
+        message.innerHTML = winText + "<br>Bấm Chơi lại để đấu tiếp";
+        message.classList.remove("hidden");
+      }
+    }
+
+    function gameLoop() {
+      drawCourt();
+      drawPlayer();
+      drawBot();
+      drawShuttle();
+
+      if (started) {
+        updatePlayer();
+        updateBot();
+        updateShuttle();
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener("keydown", function (e) {
+      keys[e.key] = true;
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (started) hitByPlayer();
+      }
+    });
+
+    document.addEventListener("keyup", function (e) {
+      keys[e.key] = false;
+    });
+
+    renderCharacters();
+    resetGame();
+    gameLoop();
+  </script>
+</body>
+</html>
